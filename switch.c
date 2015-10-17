@@ -6,20 +6,21 @@ int switch_prob(int x, int n)
 
 		case 50:
 		case 52:
-			x = x << 2;
+			result = result << 2;
 			break;
 
 		case 53:
-			x = x >> 2;
+			result = result >> 2;
 			break;
 
 		case 54:
-			x *= 3;
+			result *= 3;
 
 		case 55:
-			x *= x;
+			result *= result;
 
 		default:
-			x += 10;
+			result += 10;
 	}
+    return result;
 }
