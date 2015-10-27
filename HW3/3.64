@@ -15,14 +15,3 @@ B. The first 4-byte space is allocated to store the result of s2.diff which is (
 C. When structures are small, it is accpetable to pass structures as arguments. However, since every member of a structure gets copied when the structure is passed as an argument, it is expensive to pass a large structure. It might even cause stack overflow. 
 
 D. For C, functions only have single return values. But we usually want to have several return values from a single function. This is where handling a structure as a return value comes to play. With a structure as a return value, we can have multiple return values from a function.
-
-3.67
-
-A. e1.p: 0
-   e1.y: 4
-   e2.x: 0
-   e2.next:4
-
-B. 8 bytes.
-
-C. up->next->y = *(up->next->p) - up->p;

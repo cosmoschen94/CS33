@@ -1,0 +1,12 @@
+Edition 2nd
+
+3.67
+
+A. e1.p: 0
+   e1.y: 4
+   e2.x: 0
+   e2.next:4
+
+B. 8 bytes.
+
+C. up->next->y = *(up->next->p) - up->p;
