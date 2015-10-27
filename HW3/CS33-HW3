@@ -1,0 +1,28 @@
+Edition 2nd
+
+3.64
+
+A. Line 5 is corresponding to that %eax gets an address that is stored in the fifth 4-byte space that is allocated in the prod's stack frame.
+   Line 6 is corresponding to that %ebx gets s1.a, which has the value of x.
+   Line 7 is corresponding to that %edx gets s1.p, which has the value of &y.
+
+B. The first 4-byte space is allocated to store the result of s2.diff which is (s1.a - *s1.p).
+   The second 4-byte space is allocated to store the result of s2.sum which is (s1.a + *s1.p).
+   The third 4-byte space is allocated to store s1.p which has the value of &y.
+   The fourth 4-byte space is allocated to store s1.a which has the value of x.
+   The fifth 4-byte space is allocated to store the address of the second 4-byte space.
+
+C. When structures are small, it is accpetable to pass structures as arguments. However, since every member of a structure gets copied when the structure is passed as an argument, it is expensive to pass a large structure. It might even cause stack overflow. 
+
+D. For C, functions only have single return values. But we usually want to have several return values from a single function. This is where handling a structure as a return value comes to play. With a structure as a return value, we can have multiple return values from a function.
+
+3.67
+
+A. e1.p: 0
+   e1.y: 4
+   e2.x: 0
+   e2.next:4
+
+B. 8 bytes.
+
+C. up->next->y = *(up->next->p) - up->p;
