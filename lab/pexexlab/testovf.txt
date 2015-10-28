@@ -1,0 +1,45 @@
+1. -O2
+
+testovf:
+		xorl    %eax, %eax
+		ret
+
+With just the 02 flag and without turning on fwrap or fsanitize flag, the compiler will regard signed overflow as undefined behavior. Therefore, the program will return zero without signed overflow. In this case, the machine code simply set %eax = 0 (since a number xor with itself returns zero) and return.
+
+2. -O2 -fsanitize=undefined
+
+testovf:
+		pushq   %rbp
+		pushq   %rbx
+		movabsq $9223372036854775807, %rdx
+		subq    $8, %rsp
+		movq    big(%rip), %rbx
+		movq    %rbx, %rbp
+		addq    %rdx, %rbp
+		jo      .L6
+	.L2:
+	        cmpq    %rbp, %rbx
+		setg    %al
+		addq    $8, %rsp
+		popq    %rbx
+		popq    %rbp
+		ret
+	.L6:
+		movq    %rbx, %rsi
+		movl    $.Lubsan_data0, %edi
+		call    __ubsan_handle_add_overflow
+		jmp     .L2
+
+When the fsanitize flag is turned on, the compiler will check undefined behavior including overflow. From the machine code, it seems like the fsanitize flag, which is undefined behavior sanitizer(ubsan), first calls a function when it detects a undefined behavior to handle the situation, which is addition signed overflow in this case. By calling this function, ubsan is going to output a "runtime error:" message. Then the compiler continues to execute the program and return 1 in this case since (big + LONG_MAX < big) is true due to signed overflow.  
+
+3. -O2 -fwrapv
+
+testovf:
+		movq    big(%rip), %rdx
+		movabsq $9223372036854775807, %rax
+		addq    %rdx, %rax
+		cmpq    %rax, %rdx
+		setg    %al
+		ret
+
+When the fwrapv flag is turned on, the compiler will assume that signed arithmetic overflow of addition, subtraction and multiplication wraps around using twos-complement representation. Therefore, in this case, where addition signed overflow happens, the compiler simply executes the program and wraps around the result then return 1 since (big + LONG_MAX < big) is true.
