@@ -1,0 +1,18 @@
+Gather Instruction Traces
+
+1. I typed the following to entered gdb.
+$ gdb --args ~eggert/bin64/bin/emacs-24.5 -batch -eval '(print(* 6997 -4398042316799 179))'
+
+2. In gdb, before I began tracing, I set:
+(gdb) set disassemble-next-line on
+
+3. Then I set a breakpoint at Ftimes then run:
+(gdb) break Ftimes
+(gdb) run
+
+4. While tracing, I used the followings to go through traces and gather registers' information:
+(gdb) si
+(gdb) info r
+
+
+ 
