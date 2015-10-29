@@ -1,0 +1,78 @@
+1.
+Because there was a multiplication signed overflow. 
+
+0x00000000005437c8 <arith_driver+712>data.c:2645     imul %rdi,%rbp
+
+Before multiplication:
+rdi=0xfffffc0000400001
+rbp=0x1b55
+
+After multiplication:
+rbp=0xff92ac06d5401b55
+
+
+2.
+I looked at the lisp.h and limits.h files and found the following:
+
+#define MOST_POSITIVE_FIXNUM (EMACS_INT_MAX >> INTTYPEBITS)
+INTTYPEBITS = GCTYPEBITS - 1
+#define GCTYPEBITS 3
+EMACS_INT - signed integer wide enough to hold an Emacs value
+EMACS_INT_MAX - maximum value of EMACS_INT
+#  define EMACS_INT_MAX INT_MAX
+INT_MAX=0X7fffffffffffffff
+
+Therefore,
+MOST_POSTIVE_FIXNUM= 0X7fffffffffffffff >> (3-1) = 2305843009213693951
+
+3.
+In data.c, I found a switch statement that checks multiplication overflow, shown below:
+
+case Amult:
+  if (INT_MULTIPLY_OVERFLOW (accum, next))
+    {
+      EMACS_UINT a = accum, b = next, ab = a * b;
+      overflow = 1;
+      accum = ab & INTMASK;
+    }
+  else
+    accum *= next;
+  break;
+
+Below are corresponding instructions:
+
+0x00000000005437c8 <arith_driver+712>data.c:2645     imul %rdi,%rbp
+
+Before:
+rdi=0x1fffffffffffffff
+rbp=0x1fffffffffffffff
+
+After:
+rdi=0xc000000000000001
+
+0x000000000054363d <arith_driver+317>data.c:2642	movabs $0x3fffffffffffffff,%rbp
+
+Before:
+rbp=0x1fffffffffffffff
+
+After:
+rbp=0x3fffffffffffffff
+
+0x0000000000543647 <arith_driver+327>data.c:2642	and %rdi,%rbp
+
+After:
+rbp=0x1
+
+As we can see, the result is 1 because of this multiplication overflow checker.
+
+4.
+If the Emacs executable is compiled with -fsanitize=undefined, the trace will output "runtime error:" message and probably abort when there is undefined behavior, which in our case is signed overflow.
+
+5.
+If the Emacs executable is compiled with -fwrapv, the trace will wrap around the signed overflow, which leads to incorrect mathematical result.
+
+6.
+Since we will assume fwrapv, we can remove the int overflow checker in "arith_driver" function to simply wrap around the overflow without performing overflow checking.
+
+7.
+The overflow checker inside the "arith_driver" function only has a couple lines of instructions and it doesn't consume much time. Therefore, in terms of Big O, with and without the overflow checking won't affect the efficiency significantly.
