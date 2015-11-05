@@ -1,0 +1,53 @@
+Edition 2
+
+2.88
+
+A. Not always 1. When we cast an int to a double, the exact numeric value will 
+be preserved. Then if we convert this double into a float, it will lose the
+ same precision as if we convert the int into a float.
+
+B. Not always 1. When x=Tmin and y=Tmax, x-y causes overflow, which returns 
+a incorrect mathematical result, before we convert the result into a double. 
+But if we convert x and y into two doubles before subtraction, there will 
+be no overflow since the largest integer without losing precision a double 
+can hold is 2^53 and this is enough to hold dx-dy without overflow. In this 
+case, it should return a correct mathematical result.
+
+C. Always 1. Since the largest integer without losing precision a double 
+can hold is 2^53, even we have 3 smallest ints, Tmin, casting into doubles,
+it won't overflow.
+
+D. 
+
+E. Not always 1. For example, if dx/dy = 0/0, we will get NaN. And NaN is 
+not equal to any number, thus the logical comparison will return 0.
+
+
+2.89
+float fpwr2(int x)
+{
+    /* Result exponent and fraction */
+    unsigned exp, frac;
+    unsigned u;
+if (x < (-149)) {
+/* Too small. Return 0.0 */ 
+	exp = ￼0 ;
+	frac = ￼0 ;
+} else if (x < (-126) ) {
+	/* Denormalized result */
+	exp = ￼0 ;
+	frac = (1 << (x+149)) + (((~( 1 << (x+149))) << (23 - (x+149))) >> (23 - (x+149)))￼ ; 
+} else if (x < 128) {
+	/* Normalized result. */
+	exp = ￼ ;
+	frac = ￼ ; 
+} else {
+    /* Too big.  Return +oo */
+	exp = 0xFF￼ ;
+	frac = 0￼ ; 
+}
+    /* Pack exp and frac into 32 bits */
+    u = exp << 23 | frac;
+    /* Return as float */
+    return u2f(u);
+}

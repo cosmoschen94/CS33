@@ -1,15 +1,9 @@
 1.
-Because there was a multiplication signed overflow. 
+Because the following instruction changes the correct answer into incorrect answer:
+0x00000000005436af <arith_driver+431>lisp.h:700	      lea 0x0(,%rbp,4),%rax rax=0xce39231c6f4c71bc
 
-0x00000000005437c8 <arith_driver+712>data.c:2645     imul %rdi,%rbp
-
-Before multiplication:
-rdi=0xfffffc0000400001
-rbp=0x1b55
-
-After multiplication:
-rbp=0xff92ac06d5401b55
-
+Here the correct answer should be:
+rbp = -5508385274225025937
 
 2.
 I looked at the lisp.h and limits.h files and found the following:
@@ -20,10 +14,10 @@ INTTYPEBITS = GCTYPEBITS - 1
 EMACS_INT - signed integer wide enough to hold an Emacs value
 EMACS_INT_MAX - maximum value of EMACS_INT
 #  define EMACS_INT_MAX INT_MAX
-INT_MAX=0X7fffffffffffffff
+INT_MAX=0X7fffffffffffffff=2^63-1
 
 Therefore,
-MOST_POSTIVE_FIXNUM= 0X7fffffffffffffff >> (3-1) = 2305843009213693951
+MOST_POSTIVE_FIXNUM= 0X7fffffffffffffff >> (3-1) = 2305843009213693951=2^61-1
 
 3.
 In data.c, I found a switch statement that checks multiplication overflow, shown below:
@@ -63,7 +57,7 @@ rbp=0x3fffffffffffffff
 After:
 rbp=0x1
 
-As we can see, the result is 1 because of this multiplication overflow checker.
+As we can see, MOST_POSITIVE_NUM*MOST_POSITIVE_NUM=0xc000000000000001, this happens because only 64bit can be hold and the rest of the bits will be truncated. And the final result will be 1.
 
 4.
 If the Emacs executable is compiled with -fsanitize=undefined, the trace will output "runtime error:" message and probably abort when there is undefined behavior, which in our case is signed overflow.
