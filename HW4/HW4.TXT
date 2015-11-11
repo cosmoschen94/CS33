@@ -17,7 +17,9 @@ C. Always 1. Since the largest integer without losing precision a double
 can hold is 2^53, even we have 3 smallest ints, Tmin, casting into doubles,
 it won't overflow.
 
-D. 
+D. Not always 1. For example, if x = TMax, y = TMax - 1 and z = TMax - 2, 
+when we multiply x and y first then multiply z, we will get a different result
+to the result we get if we multiply y and z first then x. 
 
 E. Not always 1. For example, if dx/dy = 0/0, we will get NaN. And NaN is 
 not equal to any number, thus the logical comparison will return 0.

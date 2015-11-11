@@ -1,0 +1,300 @@
+1. I wget the sthttpd 2.27.0 then unzip the file.
+$ wget http://web.cs.ucla.edu/classes/fall15/cs33/lab/sthttpd-2.27.0.tar.gz
+$ tar -zxvf sthttpd-2.27.0.tar.gz
+
+2. Next, I apply the patch to the sthttpd.c file by hand.
+
+3. Make sure that /usr/local/cs/bin is at the start of my PATH
+$ which gcc
+
+4. Build sthttpd with patch applied.
+$ ./configure LDFLAGS="-Xlinker --rpath=/usr/local/cs/gcc-$(gcc -dumpversion)/lib"
+
+5. Then compile it three times with 3 different compiler options
+$ make clean
+$ make CFLAGS='-g3 -O2 -fno-inline -fstack-protector-strong'
+$ mv src/thttpd src/thttpd-sp
+$ make clean
+$ make CFLAGS='-g3 -O2 -fno-inline -static-libasan -fsanitize=address'
+$ mv src/thttpd src/thttpd-as
+$ make clean
+$ make CFLAGS='-g3 -O2 -fno-inline -fno-stack-protector -zexecstack'
+$ mv src/thttpd src/thttpd-no
+
+6. Calculate my port number
+$ emacs -batch -eval '(print (% 704308016 293))'
+$ emacs -batch -eval '(print (* 183 3))'
+$ emacs -batch -eval '(print (+ 549 12330))'
+
+SP: 12880
+AS: 12881
+NO: 12882
+
+7. Create 3 files in the working directory of my HTTPD server
+$ emacs test-sp.txt
+$ emacs test-as.txt
+$ emacs test-no.txt
+
+8. Verify my web servers work in the normal case
+$ ./thttpd-sp -p 12880
+$ curl http://localhost:12880/test-sp.txt
+$ ./thttpd-as -p 12881
+$ curl http://localhost:12881/test-as.txt
+$ ./thttpd-no -p 12882
+$ curl http://localhost:12882/test-no.txt
+
+Kill the running server:
+$ ps -u chens
+
+  PID TTY          TIME CMD
+  35641 ?        00:00:00 sshd
+  35642 pts/6    00:00:00 bash
+  35695 ?        00:00:00 sshd
+  35696 pts/8    00:00:00 bash
+  35911 pts/8    00:00:00 emacs
+  38987 ?        00:00:00 thttpd-sp
+  39149 pts/6    00:00:00 ps
+
+$ kill -s 15 38987
+
+9. Try to crash thttpd-sp by running the server with configuration file
+
+First create config.txt
+$ emacs config.txt
+In the config.txt:
+cgipat=1111 port=1111 user=1111 dir=111111 throttles=111111 data_dir=1111 cgilimit=11111 logfile=12345 localpat=1111 host=1111
+
+Then use gdb to run the program
+$ gdb ./thttpd-sp
+(gdb) run -p 12880 -D -C config.txt
+
+Ouput:
+...
+*** stack smashing detected ***: /w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-sp terminated
+======= Backtrace: =========
+/lib64/libc.so.6(__fortify_fail+0x37)[0x7ffff76e8a57]
+/lib64/libc.so.6(__fortify_fail+0x0)[0x7ffff76e8a20]
+/w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-sp[0x405042]
+/w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-sp[0x40536f]
+/w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-sp[0x403876]
+/lib64/libc.so.6(__libc_start_main+0xf5)[0x7ffff75fcaf5]
+/w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-sp[0x40441d]
+======= Memory map: ========
+...
+
+(gdb) bt
+#0  0x00007ffff76105d7 in raise () from /lib64/libc.so.6
+#1  0x00007ffff7611cc8 in abort () from /lib64/libc.so.6
+#2  0x00007ffff7650e07 in __libc_message () from /lib64/libc.so.6
+#3  0x00007ffff76e8a57 in __fortify_fail () from /lib64/libc.so.6
+#4  0x00007ffff76e8a20 in __stack_chk_fail () from /lib64/libc.so.6
+#5  0x0000000000405042 in read_config (filename=<optimized out>) at thttpd.c:1190
+#6  0x000000000040536f in parse_args (argc=6, argv=0x7fffffffe218) at thttpd.c:893
+#7  0x0000000000403876 in main (argc=<optimized out>, argv=<optimized out>) at thttpd.c:380
+
+The program crashed because the config.txt with over 100 characters caused buffer overflow.
+
+(gdb) break thttpd.c:1190
+(gdb) set disassemble-next-line on
+(gdb) kill
+(gdb) run -p 12880 -D -C config.txt
+
+Output:
+...
+Breakpoint 1, read_config (filename=<optimized out>) at thttpd.c:1190
+1190	       }
+=> 0x0000000000404f0f <read_config+1231>:	48 8b 44 24 68	mov    0x68(%rsp),%rax
+   0x0000000000404f14 <read_config+1236>:	64 48 33 04 25 28 00 00 00	xor    %fs:0x28,%rax
+   0x0000000000404f1d <read_config+1245>:	0f 85 1a 01 00 00 jne    0x40503d <read_config+1533>
+...
+
+After stepping forward:
+(gdb) si
+1190      }
+=> 0x000000000040503d <read_config+1533>:	e8 6e d4 ff ff	callq  0x4024b0 <__stack_chk_fail@plt>
+
+Since I made the following change to the thttpd.c:
+
+char line[10000];  ----->  char line[100];
+
+When I run the program with config.txt, which has over 100 characters, the exceeding
+characters will corrupt the canaries, placed between the buffer and control data in the stack.
+As we can see, the following machine instructions detects a failed verification of canary data,
+ which indicates there is buffer overflow:
+
+0x0000000000404f14 <read_config+1236>:       64 48 33 04 25 28 00 00 00      xor    %fs:0x28,%rax
+0x0000000000404f1d <read_config+1245>:       0f 85 1a 01 00 00 jne    0x40503d <read_config+1533>
+
+The program then aborts:
+=> 0x000000000040503d <read_config+1533>:       e8 6e d4 ff ff  callq  0x4024b0 <__stack_chk_fail@plt>
+
+10. Try to crash thttpd-as by running the server with configuration file
+
+$ gdb ./thttpd-as
+(gdb) run -p 12881 -D -C config.txt
+
+Ouput:
+
+=================================================================
+==45256==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7fffffffcde4 at pc 0x00000045a418 bp 0x7fffffffcd40 sp 0x7fffffffc4f0
+READ of size 128 at 0x7fffffffcde4 thread T0
+    #0 0x45a417 in __interceptor_strchr ../../../../gcc-5.2.0/libsanitizer/asan/asan_interceptors.cc:430
+    #1 0x4b1e00 in read_config /u/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1018
+    #2 0x4b290e in parse_args /u/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:893
+    #3 0x4082c7 in main /u/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:380
+    #4 0x7ffff6cc4af4 in __libc_start_main (/lib64/libc.so.6+0x21af4)
+    #5 0x409354  (/w/home.06/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd-as+0x409354)
+
+Address 0x7fffffffcde4 is located in stack of thread T0 at offset 132 in frame
+    #0 0x4b1d4f in read_config /u/cs/ugrad/chens/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1000
+
+  This frame has 1 object(s):
+      [32, 132) 'line' <== Memory access at offset 132 overflows this variable
+      HINT: this may be a false positive if your program uses some custom stack unwind mechanism or swapcontext
+        (longjmp and C++ exceptions *are* supported)
+SUMMARY: AddressSanitizer: stack-buffer-overflow ../../../../gcc-5.2.0/libsanitizer/asan/asan_interceptors.cc:430 __interceptor_strchr
+Shadow bytes around the buggy address:
+  0x10007fff7960: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff7970: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff7980: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff7990: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff79a0: 00 00 00 00 00 00 00 00 00 00 00 00 f1 f1 f1 f1
+=>0x10007fff79b0: 00 00 00 00 00 00 00 00 00 00 00 00[04]f4 f4 f4
+  0x10007fff79c0: f3 f3 f3 f3 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff79d0: 00 00 00 00 f1 f1 f1 f1 04 f4 f4 f4 f2 f2 f2 f2
+  0x10007fff79e0: 04 f4 f4 f4 f2 f2 f2 f2 00 00 f4 f4 f2 f2 f2 f2
+  0x10007fff79f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x10007fff7a00: f2 f2 f2 f2 00 00 00 00 00 00 00 00 00 00 00 00
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07
+  Heap left redzone:       fa
+  Heap right redzone:      fb
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack partial redzone:   f4
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+==45256==ABORTING
+[Inferior 1 (process 45256) exited with code 01]
+
+We can see that the "line" array in read_config function makes buffer overflow possible:
+
+This frame has 1 object(s):
+      [32, 132) 'line' <== Memory access at offset 132 overflows this variable
+
+Using -fsanitize=address flag, AddressSanitizer will map stack memory addresses to
+shadow memory and the redzones are created and poisoned around the stack objects during
+run-time. For each shadow byte, we have the following encoding: 0 means that all 8 bytes
+of the corresponding application memory region are addressable; k (1 ≤ k ≤ 7) means that
+the first k bytes are addressible; any negative value indicates that the entire 8-byte
+word is unaddressable. Whenever something tries to access inaccessible poisoned addresses,
+AddressSanitizer will report an error and abort the program. In our case, since the
+config.txt contains over 100 characters, the char array "line" is overflowed when we run
+the server with config.txt. As we can see in the Shadow bytes around the buggy address,
+the program trys to access the poisoned address:
+
+  0x10007fff79a0: 00 00 00 00 00 00 00 00 00 00 00 00 f1 f1 f1 f1
+=>0x10007fff79b0: 00 00 00 00 00 00 00 00 00 00 00 00[04]f4 f4 f4
+  0x10007fff79c0: f3 f3 f3 f3 00 00 00 00 00 00 00 00 00 00 00 00
+
+Then AddressSanitizer detects it, reports error and aborts the program.
+
+The following machine instruction calls the __interceptor_strchr function, which leads
+to the abort:
+
+0x00000000004b1dfc <read_config+188>:	   e8 3f 85 fa ff   callq  0x45a340 <__interceptor_strchr(char const*, int)>
+
+The following machine instructions detects the out-of-bound access and reports error:
+
+0x000000000045a402 <__interceptor_strchr(char const*, int)+194>: e8 19 84 02 00 callq  0x482820 <__asan_region_is_poisoned(__sanitizer::uptr, __sanitizer::uptr)>
+0x000000000045a42e <__interceptor_strchr(char const*, int)+238>: e8 3d c1 02 00 callq  0x486570 <__asan_report_error(__sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, int, __sanitizer::uptr)>
+
+11. Try to crash thttpd-no by running the server with configuration file
+
+First create another configuration file
+$ emacs config-no.txt
+
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Then use gdb to run the server:
+$ gdb ./thttpd-no
+(gdb) run -p 12882 -D -C config-no.txt
+
+Output:
+...
+Program received signal SIGSEGV, Segmentation fault.
+0x0000000000404d8b in read_config (filename=<optimized out>) at thttpd.c:1190
+...
+
+(gdb) bt
+#0  0x0000000000404d8b in read_config (filename=<optimized out>) at thttpd.c:1190
+#1  0x4141414141414141 in ?? ()
+#2  0x4141414141414141 in ?? ()
+#3  0x4141414141414141 in ?? ()
+#4  0x4141414141414141 in ?? ()
+#5  0x4141414141414141 in ?? ()
+#6  0x4141414141414141 in ?? ()
+#7  0x4141414141414141 in ?? ()
+#8  0x4141414141414141 in ?? ()
+#9  0x4141414141414141 in ?? ()
+#10 0x4141414141414141 in ?? ()
+#11 0x4141414141414141 in ?? ()
+#12 0x4141414141414141 in ?? ()
+#13 0x4141414141414141 in ?? ()
+#14 0x4141414141414141 in ?? ()
+#15 0x4141414141414141 in ?? ()
+#16 0x4141414141414141 in ?? ()
+#17 0x4141414141414141 in ?? ()
+#18 0x4141414141414141 in ?? ()
+#19 0x0000000041414141 in ?? ()
+#20 0x0000000000000000 in ?? ()
+
+After the following machine instruction the program then received signal SIGSEGV:
+=> 0x0000000000404d8b <read_config+1227>:   c3	    retq
+
+The program crashed at this instruction since we passed in an over-long config file.
+The exceeding characters corrupted the return address. Then when the program tried
+to return, it failed to do so because of the invalid address we "injected". However,
+if we are lucky enough or we obtain the offset of rip, we then can get control of the
+retq instruction and make the program return to some addresses we want it to go to. 
+
+12. Generate assembly code for thttpd.c three times for sp, as and no:
+$ make clean
+$ make CFLAGS='-S -O2 -fno-inline -fstack-protector-strong'
+$ mv thttpd.o thttpd-sp.s
+
+$ make clean
+$ make CFLAGS='-S -O2 -fno-inline -static-libasan -fsanitize=address'
+$ mv thttpd.o thttpd-as.s
+
+$ make clean
+$ make CFLAGS='-S -O2 -fno-inline -fno-stack-protector -zexecstack'
+$ mv thttpd.o thttpd-no.s
+
+Then compare the differing techniques used by -fstack-protector-strong and -fsanitize=address:
+$ diff -u thttpd-no.s thttpd-as.s > no-as.diff
+$ diff -u thttpd-no.s thttpd-sp.s > no-sp.diff
+$ diff -u thttpd-as.s thttpd-sp.s > as-sp.diff
+
+First, reading through no-as.diff, in the handle_read funtion, I find significant difference
+between the two. This happens because using -fsanitize=address flag, AddressSanitizer will
+map 8 byte memories to a single byte(addressable, partial addressable or unaddressable), which
+is indicated in the as assembly code. The instructions will "check" whether the memory is
+addressable. If the program tries to access unaddressable memory, the AddressSanitizer will find
+out. This results in the difference between the two assembly codes.
+
+Second, reading through no-sp.diff, I find that in the handle_read function, these two
+assembly codes are identical. However, in as-sp.diff, the two assembly codes differ
+significantly. This happens because unlike as, sp only set up canaries in the stack.
+
+13.
