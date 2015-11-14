@@ -217,14 +217,17 @@ to the abort:
 The following machine instructions detects the out-of-bound access and reports error:
 
 0x000000000045a402 <__interceptor_strchr(char const*, int)+194>: e8 19 84 02 00 callq  0x482820 <__asan_region_is_poisoned(__sanitizer::uptr, __sanitizer::uptr)>
-0x000000000045a42e <__interceptor_strchr(char const*, int)+238>: e8 3d c1 02 00 callq  0x486570 <__asan_report_error(__sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, int, __sanitizer::uptr)>
+0x000000000045a42e <__interceptor_strchr(char const*, int)+238>: e8 3d c1 02 00 callq  0x486570 
+<__asan_report_error(__sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, __sanitizer::uptr, int, __sanitizer::uptr)>
 
 11. Try to crash thttpd-no by running the server with configuration file
 
 First create another configuration file
 $ emacs config-no.txt
 
-user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 Then use gdb to run the server:
 $ gdb ./thttpd-no
