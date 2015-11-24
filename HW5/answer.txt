@@ -1,0 +1,6 @@
+12.18
+
+A is unsafe; B is safe; C is unsafe.
+
+12.24
+The functions rio_readn(…) and rio_writen(…) are non-reentrant functions. Since both functions allow a pass of pointer and have data references to local automatic stack variables it can be considered to be implicitly reentrant. However, since the fd variable in both functions has a possibility of changing the file descriptors globally, it is deemed to be non-reentrant. Also, since if one function is non-reentrant, any function that is reentrant that is called by that non-reentrant function is defined to be non-reentrant. Therefore, the rio_readinitb(…) function is implicitly reentrant since it allows a pass of pointer, a pass by value, and has local variables, but is not called by any non-reentrant function.
