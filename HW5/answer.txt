@@ -4,3 +4,23 @@ A is unsafe; B is safe; C is unsafe.
 
 12.24
 The functions rio_readn(…) and rio_writen(…) are non-reentrant functions. Since both functions allow a pass of pointer and have data references to local automatic stack variables it can be considered to be implicitly reentrant. However, since the fd variable in both functions has a possibility of changing the file descriptors globally, it is deemed to be non-reentrant. Also, since if one function is non-reentrant, any function that is reentrant that is called by that non-reentrant function is defined to be non-reentrant. Therefore, the rio_readinitb(…) function is implicitly reentrant since it allows a pass of pointer, a pass by value, and has local variables, but is not called by any non-reentrant function.
+
+ssize_t rio_readn(int fd, void *usrbuf, size_t n)
+Implicitly reentrant because the function has a pointer passed in by the caller.
+It is only reentrant if the calling threads are careful to pass pointers to non-shared variables.
+
+ssize_t rio_writen(int fd, void *usrbuf, size_t n)
+Implicitly reentrant because the function has a pointer passed in by the caller.
+It is only reentrant if the calling threads are careful to pass pointers to non-shared variables.
+
+void rio_readinitb(rio_t *rp, int fd)
+Non-reentrant because the function modifies global shared variables indirectly by modifying the values pointed by the passing in pointer.
+
+static ssize_t rio_read(rio_t *rp, char *usrbuf, size_t n)
+Non-reentrant because the function modifies global shared variables indirectly by modifying the values pointed by the passing in pointer.
+
+ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
+Non-reentrant because it calls an non-reentrant function.
+
+ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n)
+Non-reentrant because it calls an non-reentrant function.
